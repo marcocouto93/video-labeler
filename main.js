@@ -3,6 +3,12 @@ const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const ffmpegPath = require('ffmpeg-static');
+// Replace 'app.asar' with 'app.asar.unpacked' so spawn can locate ffmpeg.exe on Windows
+const ffmpegPath = ffmpegStatic ? ffmpegStatic.replace('app.asar', 'app.asar.unpacked') : '';
+
+// If using fluent-ffmpeg:
+// const ffmpeg = require('fluent-ffmpeg');
+// ffmpeg.setFfmpegPath(ffmpegPath);
 
 let win;
 

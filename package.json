@@ -19,6 +19,7 @@
   "build": {
     "appId": "com.videolabeler.app",
     "productName": "Video Labeler",
+    
     "directories": {
       "output": "dist"
     },
