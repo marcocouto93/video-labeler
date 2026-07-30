@@ -1,0 +1,41 @@
+{
+  "name": "video-labeler",
+  "version": "1.0.0",
+  "description": "Batch overlay animated labels onto MP4 videos without full timeline re-rendering",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build-icons": "electron-icon-builder --input=./icon.png --output=./assets",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "ffmpeg-static": "^5.2.0"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.0",
+    "electron-icon-builder": "^2.0.1"
+  },
+  "build": {
+    "appId": "com.videolabeler.app",
+    "productName": "Video Labeler",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*"
+    ],
+    "asarUnpack": [
+      "**/node_modules/ffmpeg-static/**/*"
+    ],
+    "win": {
+      "target": ["nsis", "portable"],
+      "icon": "assets/icons/win/icon.ico"
+    },
+    "mac": {
+      "target": ["dmg", "zip"],
+      "icon": "assets/icons/mac/icon.icns",
+      "category": "public.app-category.video"
+    }
+  }
+}

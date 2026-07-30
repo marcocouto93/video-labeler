@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Batch Video Labeler</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f6f4ef;
+    --card: #eeebe3;
+    --card-hover: #e6e2d7;
+    --ink: #17170f;
+    --ink-dim: #8c887c;
+    --line: #ddd8cb;
+    --accent: #2f7a52;
+    --accent-tint: rgba(47, 122, 82, 0.08);
+    --danger: #c0503f;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    overflow: hidden;
+  }
+
+  .step-dots {
+    position: fixed;
+    top: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 7px;
+    z-index: 10;
+  }
+
+  .step-dots .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--line);
+    transition: background 0.3s ease, transform 0.3s ease;
+  }
+
+  .step-dots .dot.done { background: var(--accent); }
+  .step-dots .dot.current { background: var(--ink); transform: scale(1.3); }
+
+  .back-link {
+    position: fixed;
+    top: 26px;
+    left: 30px;
+    font-size: 12.5px;
+    color: var(--ink-dim);
+    cursor: pointer;
+    z-index: 10;
+    letter-spacing: 0.01em;
+    transition: color 0.15s ease;
+  }
+  .back-link:hover { color: var(--ink); }
+
+  .screen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    opacity: 0;
+    transform: translateY(10px);
+    pointer-events: none;
+    transition: opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1), transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .screen.active {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  .screen-inner {
+    width: 100%;
+    max-width: 380px;
+    text-align: center;
+  }
+
+  .eyebrow {
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-dim);
+    margin: 0 0 10px 0;
+    font-weight: 500;
+  }
+
+  h1 {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 800;
+    font-size: 40px;
+    line-height: 1.08;
+    letter-spacing: -0.01em;
+    margin: 0 0 12px 0;
+    color: var(--ink);
+  }
+
+  .subtext {
+    font-size: 13.5px;
+    color: var(--ink-dim);
+    line-height: 1.5;
+    margin: 0 0 30px 0;
+  }
+
+  .add-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 20px 8px 8px;
+    border: 1.5px dashed #b9c9bd;
+    border-radius: 999px;
+    background: transparent;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--accent);
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+
+  .add-pill:hover, .screen-label-drop.hover .add-pill { 
+    background: var(--accent-tint); 
+    border-color: var(--accent); 
+  }
+
+  .add-pill .plus-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    color: var(--ink);
+    flex-shrink: 0;
+  }
+
+  .file-chip {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    margin-top: 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    color: var(--accent);
+    background: var(--accent-tint);
+    border-radius: 999px;
+    padding: 7px 14px;
+    max-width: 100%;
+  }
+
+  .file-chip span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .file-chip.show { display: inline-flex; }
+
+  .drop-zone {
+    border: 1.5px dashed var(--line);
+    border-radius: 18px;
+    padding: 38px 20px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+    margin-bottom: 16px;
+  }
+
+  .drop-zone.hover {
+    border-color: var(--accent);
+    background: var(--accent-tint);
+  }
+
+  .drop-zone .plus-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    margin: 0 auto 14px;
+    color: var(--ink);
+  }
+
+  .drop-zone .dz-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .drop-zone .dz-sub {
+    font-size: 12px;
+    color: var(--ink-dim);
+  }
+
+  .browse-link {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+  }
+
+  .summary {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 26px;
+    text-align: left;
+  }
+
+  .summary-card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .summary-card .label {
+    font-size: 11px;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .summary-card .value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--ink);
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 220px;
+  }
+
+  .btn-primary {
+    width: 100%;
+    padding: 13px;
+    border-radius: 999px;
+    border: none;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.1s ease;
+  }
+
+  .btn-primary:hover { background: #000; }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-primary:disabled {
+    background: var(--line);
+    color: #a8a496;
+    cursor: not-allowed;
+  }
+
+  .ring-wrap {
+    position: relative;
+    width: 180px;
+    height: 180px;
+    margin: 0 auto 26px;
+  }
+
+  .ring-dot {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--line);
+    transform-origin: 0 0;
+  }
+
+  .ring-dot.pulse {
+    animation: dotPulse 1.6s ease-in-out infinite;
+  }
+
+  .ring-dot.complete {
+    background: var(--accent) !important;
+    animation: none !important;
+  }
+
+  @keyframes dotPulse {
+    0%, 100% { background: var(--line); }
+    50% { background: var(--ink); }
+  }
+
+  .ring-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+  }
+
+  .ring-count {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 800;
+    font-size: 34px;
+    color: var(--ink);
+  }
+
+  .ring-count-label {
+    font-size: 11px;
+    color: var(--ink-dim);
+    margin-top: 2px;
+  }
+
+  .status-line {
+    font-size: 13px;
+    color: var(--ink-dim);
+    margin-bottom: 22px;
+    min-height: 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+  }
+
+  .log-toggle {
+    font-size: 11.5px;
+    color: var(--ink-dim);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+    margin-top: 6px;
+  }
+
+  #log {
+    display: none;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    height: 100px;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    line-height: 1.7;
+    color: var(--ink-dim);
+    margin-top: 12px;
+    text-align: left;
+  }
+
+  #log.show { display: block; }
+  #log div { color: var(--ink); }
+
+  .done-actions {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 6px;
+  }
+
+  .done-actions.show { display: flex; }
+</style>
+</head>
+<body>
+
+  <div class="step-dots" id="stepDots">
+    <span class="dot" data-step="1"></span>
+    <span class="dot" data-step="2"></span>
+    <span class="dot" data-step="3"></span>
+  </div>
+
+  <!-- Screen 1: Label -->
+  <div class="screen active screen-label-drop" id="screen-label">
+    <div class="screen-inner">
+      <p class="eyebrow">Step 1 of 3</p>
+      <h1>Add your<br>animated label</h1>
+      <p class="subtext">Drag and drop your label file (.mov, .mp4, .webm) here, or click to choose.</p>
+      <button class="add-pill" id="selectLabelBtn">
+        <span class="plus-icon">+</span> Add label
+      </button>
+      <div class="file-chip" id="labelDisplay"><span></span></div>
+    </div>
+  </div>
+
+  <!-- Screen 2: Videos -->
+  <div class="screen" id="screen-videos">
+    <div class="back-link" data-back="screen-label">← Back</div>
+    <div class="screen-inner">
+      <p class="eyebrow">Step 2 of 3</p>
+      <h1>Add your<br>videos</h1>
+      <p class="subtext">Drag and drop your .mp4 files below, or browse for a folder.</p>
+      <div class="drop-zone" id="dropZone">
+        <div class="plus-icon">+</div>
+        <div class="dz-title">Drop videos here</div>
+        <div class="dz-sub">or <span class="browse-link" id="selectVideosBtn">browse files</span></div>
+      </div>
+      <div class="file-chip" id="videosDisplay"><span></span></div>
+    </div>
+  </div>
+
+  <!-- Screen 3: Output + Start -->
+  <div class="screen" id="screen-output">
+    <div class="back-link" data-back="screen-videos">← Back</div>
+    <div class="screen-inner">
+      <p class="eyebrow">Step 3 of 3</p>
+      <h1>Ready to<br>process</h1>
+      <p class="subtext">Choose where the finished videos should be saved.</p>
+
+      <div class="summary">
+        <div class="summary-card">
+          <span class="label">Label</span>
+          <span class="value" id="summaryLabel">—</span>
+        </div>
+        <div class="summary-card">
+          <span class="label">Videos</span>
+          <span class="value" id="summaryVideos">—</span>
+        </div>
+        <div class="summary-card">
+          <span class="label">Output</span>
+          <span class="value" id="summaryOutput">Not set</span>
+        </div>
+      </div>
+
+      <button class="add-pill" id="selectOutputBtn" style="margin-bottom: 16px;">
+        <span class="plus-icon">+</span> Choose folder
+      </button>
+
+      <button class="btn-primary" id="runBtn" disabled>Start processing</button>
+    </div>
+  </div>
+
+  <!-- Screen 4: Processing -->
+  <div class="screen" id="screen-processing">
+    <div class="screen-inner">
+      <div class="ring-wrap" id="ringWrap"></div>
+      <p class="status-line" id="statusLine">Starting batch export…</p>
+      <div class="done-actions" id="doneActions">
+        <button class="btn-primary" id="newBatchBtn">Start a new batch</button>
+      </div>
+      <div class="log-toggle" id="logToggle">Show details</div>
+      <div id="log"></div>
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    let videoFiles = [];
+    let labelPath = '';
+    let outputDir = '';
+
+    const labelDisplay = document.getElementById('labelDisplay');
+    const videosDisplay = document.getElementById('videosDisplay');
+    const runBtn = document.getElementById('runBtn');
+    const logDiv = document.getElementById('log');
+    const statusLine = document.getElementById('statusLine');
+    const doneActions = document.getElementById('doneActions');
+
+    const summaryLabel = document.getElementById('summaryLabel');
+    const summaryVideos = document.getElementById('summaryVideos');
+    const summaryOutput = document.getElementById('summaryOutput');
+
+    const dots = document.querySelectorAll('#stepDots .dot');
+
+    function fileName(p) {
+      if (!p) return '';
+      return p.split(/[\\/]/).pop();
+    }
+
+    function log(msg) {
+      logDiv.innerHTML += `<div>${msg}</div>`;
+      logDiv.scrollTop = logDiv.scrollHeight;
+      statusLine.innerText = msg.replace(/[🎉⚠️✅❌]/g, '').trim();
+    }
+
+    // ---- Screen navigation ----
+    const screens = ['screen-label', 'screen-videos', 'screen-output', 'screen-processing'];
+    function showScreen(id) {
+      screens.forEach(s => document.getElementById(s).classList.toggle('active', s === id));
+      const stepIndex = { 'screen-label': 1, 'screen-videos': 2, 'screen-output': 3 }[id] || 0;
+      dots.forEach(d => {
+        const step = parseInt(d.dataset.step, 10);
+        d.classList.toggle('done', step < stepIndex);
+        d.classList.toggle('current', step === stepIndex);
+      });
+    }
+
+    document.querySelectorAll('.back-link').forEach(el => {
+      el.addEventListener('click', () => showScreen(el.dataset.back));
+    });
+
+    function setLabelFile(filePath) {
+      labelPath = filePath;
+      labelDisplay.querySelector('span').innerText = fileName(labelPath);
+      labelDisplay.classList.add('show');
+      summaryLabel.innerText = fileName(labelPath);
+      setTimeout(() => showScreen('screen-videos'), 450);
+    }
+
+    // ---- Step 1: Select Label (Browse) ----
+    document.getElementById('selectLabelBtn').onclick = async () => {
+      const selected = await ipcRenderer.invoke('select-label');
+      if (selected) setLabelFile(selected);
+    };
+
+    // ---- Step 1: Drag & Drop Label ----
+    const screenLabel = document.getElementById('screen-label');
+    screenLabel.ondragover = (e) => { e.preventDefault(); screenLabel.classList.add('hover'); };
+    screenLabel.ondragleave = () => screenLabel.classList.remove('hover');
+    screenLabel.ondrop = (e) => {
+      e.preventDefault();
+      screenLabel.classList.remove('hover');
+      const droppedFiles = Array.from(e.dataTransfer.files);
+      const labelFile = droppedFiles.find(f => /\.(mov|mp4|webm)$/i.test(f.name));
+      
+      if (labelFile) {
+        setLabelFile(labelFile.path);
+      } else {
+        log('⚠️ Please drop a valid video label file (.mov, .mp4, or .webm).');
+      }
+    };
+
+    // ---- Step 2: Select Videos (Browse) ----
+    document.getElementById('selectVideosBtn').onclick = async () => {
+      const selected = await ipcRenderer.invoke('select-videos');
+      if (selected.length > 0) {
+        videoFiles = selected;
+        videosDisplay.querySelector('span').innerText = `${videoFiles.length} video(s) ready`;
+        videosDisplay.classList.add('show');
+        summaryVideos.innerText = `${videoFiles.length} file(s)`;
+        setTimeout(() => showScreen('screen-output'), 450);
+      }
+    };
+
+    // ---- Step 2: Drag & Drop Videos ----
+    const dropZone = document.getElementById('dropZone');
+    dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('hover'); };
+    dropZone.ondragleave = () => dropZone.classList.remove('hover');
+    dropZone.ondrop = (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('hover');
+      const files = Array.from(e.dataTransfer.files)
+        .filter(f => f.name.toLowerCase().endsWith('.mp4'))
+        .map(f => f.path);
+
+      if (files.length > 0) {
+        videoFiles = files;
+        videosDisplay.querySelector('span').innerText = `${videoFiles.length} video(s) ready`;
+        videosDisplay.classList.add('show');
+        summaryVideos.innerText = `${videoFiles.length} file(s)`;
+        setTimeout(() => showScreen('screen-output'), 450);
+      } else {
+        log('⚠️ Please drop valid .mp4 files.');
+      }
+    };
+
+    // ---- Step 3: Output folder ----
+    document.getElementById('selectOutputBtn').onclick = async () => {
+      const selected = await ipcRenderer.invoke('select-output-dir');
+      if (selected) {
+        outputDir = selected;
+        summaryOutput.innerText = fileName(outputDir);
+        runBtn.disabled = false;
+      }
+    };
+
+    // ---- Build dot ring ----
+    const ringWrap = document.getElementById('ringWrap');
+    const RING_DOTS = 40;
+    const RADIUS = 88;
+    for (let i = 0; i < RING_DOTS; i++) {
+      const angle = (i / RING_DOTS) * 2 * Math.PI;
+      const x = 90 + RADIUS * Math.cos(angle);
+      const y = 90 + RADIUS * Math.sin(angle);
+      const dot = document.createElement('div');
+      dot.className = 'ring-dot pulse';
+      dot.style.left = `${x}px`;
+      dot.style.top = `${y}px`;
+      dot.style.animationDelay = `${(i / RING_DOTS) * 1.6}s`;
+      ringWrap.appendChild(dot);
+    }
+    const center = document.createElement('div');
+    center.className = 'ring-center';
+    center.innerHTML = `<div class="ring-count" id="ringCount">0</div><div class="ring-count-label" id="ringCountLabel">of 0</div>`;
+    ringWrap.appendChild(center);
+
+    let processedCount = 0;
+    function bumpProgress() {
+      processedCount = Math.min(processedCount + 1, videoFiles.length);
+      document.getElementById('ringCount').innerText = processedCount;
+      document.getElementById('ringCountLabel').innerText = `of ${videoFiles.length}`;
+    }
+
+    function markRingComplete() {
+      document.querySelectorAll('.ring-dot').forEach(d => d.classList.add('complete'));
+    }
+
+    // ---- Run Batch ----
+    runBtn.onclick = () => {
+      logDiv.innerHTML = '';
+      statusLine.innerText = 'Starting batch export…';
+      doneActions.classList.remove('show');
+      processedCount = 0;
+      document.getElementById('ringCount').innerText = '0';
+      document.getElementById('ringCountLabel').innerText = `of ${videoFiles.length}`;
+      document.querySelectorAll('.ring-dot').forEach(d => d.classList.remove('complete'));
+      showScreen('screen-processing');
+      ipcRenderer.send('process-videos', { videoPaths: videoFiles, labelPath, outputDir });
+    };
+
+    // Fix: Only increment count on explicit completion/error logs
+    ipcRenderer.on('log', (event, msg) => {
+      log(msg);
+      if (msg.includes('🎉')) {
+        markRingComplete();
+        doneActions.classList.add('show');
+      } else if (msg.includes('✅') || msg.includes('❌')) {
+        bumpProgress();
+      }
+    });
+
+    document.getElementById('logToggle').onclick = () => {
+      const isShown = logDiv.classList.toggle('show');
+      document.getElementById('logToggle').innerText = isShown ? 'Hide details' : 'Show details';
+    };
+
+    document.getElementById('newBatchBtn').onclick = () => {
+      videoFiles = [];
+      labelPath = '';
+      outputDir = '';
+      labelDisplay.classList.remove('show');
+      videosDisplay.classList.remove('show');
+      summaryLabel.innerText = '—';
+      summaryVideos.innerText = '—';
+      summaryOutput.innerText = 'Not set';
+      runBtn.disabled = true;
+      showScreen('screen-label');
+    };
+
+    showScreen('screen-label');
+  </script>
+</body>
+</html>
