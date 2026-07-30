@@ -16,8 +16,8 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     strategy:
+      fail-fast: false  # Prevents cancelling Windows if macOS fails (and vice-versa)
       matrix:
-        # Runs a Windows machine AND a Mac machine simultaneously
         os: [windows-latest, macos-latest]
 
     steps:
@@ -27,7 +27,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install dependencies
@@ -50,3 +50,4 @@ jobs:
             dist/*.exe
             dist/*.dmg
             dist/*.zip
+          if-no-files-found: ignore
